@@ -1,0 +1,331 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+
+  "title": "Ethereum RPC Provider List",
+  "description": "Schema for lists of RPC providers compatible with Ethereum wallets.",
+
+  "$defs": {
+    "VersionBase": {
+      "type": "object",
+      "description": "Version of a list, used to communicate changes.",
+
+      "required": [
+        "major",
+        "minor",
+        "patch"
+      ],
+
+      "properties": {
+        "major": {
+          "type": "integer",
+          "description": "Major version of a list. Incremented when providers are removed from the list or when their chain ids change.",
+          "minimum": 0
+        },
+
+        "minor": {
+          "type": "integer",
+          "description": "Minor version of a list. Incremented when providers are added to the list.",
+          "minimum": 0
+        },
+
+        "patch": {
+          "type": "integer",
+          "description": "Patch version of a list. Incremented for any change not covered by major or minor versions, like bug fixes.",
+          "minimum": 0
+        },
+
+        "preRelease": {
+          "type": "string",
+          "description": "Pre-release version of a list. Indicates that the version is unstable and might not satisfy the intended compatibility requirements as denoted by its major, minor, and patch versions.",
+          "pattern": "^[1-9A-Za-z][0-9A-Za-z]*(\\.[1-9A-Za-z][0-9A-Za-z]*)*$"
+        }
+      }
+    },
+
+    "Version": {
+      "type": "object",
+      "additionalProperties": false,
+
+      "allOf": [
+      {
+        "$ref": "#/$defs/VersionBase"
+      }
+      ],
+
+      "properties": {
+        "major": true,
+        "minor": true,
+        "patch": true,
+        "preRelease": true,
+        "build": {
+          "type": "string",
+          "description": "Build metadata associated with a list.",
+          "pattern": "^[0-9A-Za-z-]+(\\.[0-9A-Za-z-])*$"
+        }
+      }
+    },
+
+    "VersionRange": {
+      "type": "object",
+      "additionalProperties": false,
+
+      "properties": {
+        "major": true,
+        "minor": true,
+        "patch": true,
+        "preRelease": true,
+        "mode": true
+      },
+
+      "allOf": [
+        {
+          "$ref": "#/$defs/VersionBase"
+        }
+      ],
+
+      "oneOf": [
+        {
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": ["^", "="]
+            },
+            "preRelease": false
+          }
+        },
+      {
+        "required": [
+          "preRelease",
+          "mode"
+        ],
+
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": ["="]
+          }
+        }
+      }
+      ]
+    },
+
+    "Logo": {
+      "type": "string",
+      "description": "A URI to a logo; suggest SVG or PNG of size 64x64",
+      "format": "uri"
+    },
+
+    "ProviderChain": {
+      "type": "object",
+      "description": "A single chain supported by a provider",
+      "additionalProperties": false,
+      "required": [
+        "chainId",
+        "endpoints"
+      ],
+      "properties": {
+        "chainId": {
+          "type": "integer",
+          "description": "Chain ID of an Ethereum-compatible network",
+          "minimum": 1
+        },
+        "endpoints": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      }
+    },
+
+    "Provider": {
+      "type": "object",
+      "description": "Description of an RPC provider.",
+      "additionalProperties": false,
+
+      "required": [
+        "chains",
+        "name"
+      ],
+
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the provider.",
+          "minLength": 1,
+          "maxLength": 40,
+          "pattern": "^[ \\w.'+\\-%/À-ÖØ-öø-ÿ:&\\[\\]\\(\\)]+$"
+        },
+        "logo": {
+          "$ref": "#/$defs/Logo"
+        },
+        "priority": {
+          "type": "integer",
+          "description": "Priority of this provider (where zero is the highest priority.)",
+          "minimum": 0
+        },
+        "chains": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProviderChain"
+          }
+        }
+      }
+    },
+
+    "Path": {
+      "description": "A JSON Pointer path.",
+      "type": "string"
+    },
+
+    "Patch": {
+      "items": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "required": ["value", "op", "path"],
+            "properties": {
+              "path": {
+                "$ref": "#/$defs/Path"
+              },
+              "op": {
+                "description": "The operation to perform.",
+                "type": "string",
+                "enum": ["add", "replace", "test"]
+              },
+              "value": {
+                "description": "The value to add, replace or test."
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "required": ["op", "path"],
+            "properties": {
+              "path": {
+                "$ref": "#/$defs/Path"
+              },
+              "op": {
+                "description": "The operation to perform.",
+                "type": "string",
+                "enum": ["remove"]
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "required": ["from", "op", "path"],
+            "properties": {
+              "path": {
+                "$ref": "#/$defs/Path"
+              },
+
+              "op": {
+                "description": "The operation to perform.",
+                "type": "string",
+                "enum": ["move", "copy"]
+              },
+              "from": {
+                "$ref": "#/$defs/Path",
+                "description": "A JSON Pointer path pointing to the location to move/copy from."
+              }
+            }
+          }
+        ]
+      },
+      "type": "array"
+    }
+  },
+
+  "type": "object",
+  "additionalProperties": false,
+
+  "required": [
+    "name",
+    "version",
+    "timestamp"
+  ],
+
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name of the provider list",
+      "minLength": 1,
+      "maxLength": 40,
+      "pattern": "^[\\w ]+$"
+    },
+    "logo": {
+      "$ref": "#/$defs/Logo"
+    },
+    "version": {
+      "$ref": "#/$defs/Version"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "The timestamp of this list version; i.e. when this immutable version of the list was created"
+    },
+    "extends": true,
+    "changes": true,
+    "providers": true
+  },
+
+  "oneOf": [
+    {
+      "type": "object",
+
+      "required": [
+        "extends",
+        "changes"
+      ],
+
+      "properties": {
+        "providers": false,
+
+        "extends": {
+          "type": "object",
+          "additionalProperties": false,
+
+          "required": [
+            "from",
+            "version"
+          ],
+
+          "properties": {
+            "from": {
+              "type": "string",
+              "format": "uri"
+            },
+            "version": {
+              "$ref": "#/$defs/VersionRange"
+            }
+          }
+        },
+        "changes": {
+          "$ref": "#/$defs/Patch"
+        }
+      }
+    },
+    {
+      "type": "object",
+
+      "required": [
+        "providers"
+      ],
+
+      "properties": {
+        "changes": false,
+        "extends": false,
+        "providers": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/Provider"
+          }
+        }
+      }
+    }
+  ]
+}
