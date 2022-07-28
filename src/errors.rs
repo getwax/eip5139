@@ -31,11 +31,12 @@ pub struct PatchError(pub(crate) json_patch::PatchError);
 #[non_exhaustive]
 pub enum Error {
     Fetch { source: FetchError },
-    Cycle { duplicate: String },
+    Cycle { duplicate: crate::Source },
     Json { source: JsonError },
     Patch { source: PatchError },
     Validation { source: ValidationError },
     TooDeep,
+    VersionMismatch,
 }
 
 impl From<JsonError> for Error {

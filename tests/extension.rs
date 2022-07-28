@@ -1,5 +1,5 @@
 use eip5139::errors::*;
-use eip5139::RpcProviders;
+use eip5139::{RpcProviders, Source};
 
 use std::collections::HashMap;
 use std::future::Future;
@@ -11,7 +11,7 @@ use futures_executor::LocalPool;
 use wasm_bindgen_test::wasm_bindgen_test;
 
 struct Fetch {
-    contents: HashMap<String, String>,
+    contents: HashMap<Source, String>,
 }
 
 impl Fetch {
@@ -21,15 +21,18 @@ impl Fetch {
         T: Into<String>,
     {
         let mut contents = HashMap::new();
-        contents.insert("file://one".into(), one.into());
-        contents.insert("file://two".into(), two.into());
+        contents.insert(Source::Uri("file://one".into()), one.into());
+        contents.insert(Source::Uri("file://two".into()), two.into());
         Self { contents }
     }
 }
 
 impl eip5139::fetch::Fetch for Fetch {
-    fn fetch(&mut self, uri: &str) -> Pin<Box<dyn Future<Output = Result<String, FetchError>>>> {
-        let output = Ok(self.contents[uri].to_owned());
+    fn fetch(
+        &mut self,
+        source: Source,
+    ) -> Pin<Box<dyn Future<Output = Result<String, FetchError>>>> {
+        let output = Ok(self.contents[&source].to_owned());
         Box::pin(async move { output })
     }
 }
@@ -62,7 +65,7 @@ fn valid_empty_add_one() {
   "timestamp": "2024-08-08T00:00:00.0Z",
   "logo": "https://mylist2.invalid/logo.png",
   "extends": {
-    "from": "file://one",
+    "uri": "file://one",
     "version": {
       "major": 0,
       "minor": 1,
@@ -120,7 +123,7 @@ fn valid_empty_add_one() {
     let fetch = Fetch::with_two(one, two);
     let mut pool = LocalPool::new();
     let list = pool
-        .run_until(RpcProviders::fetch(fetch, "file://two"))
+        .run_until(RpcProviders::fetch(fetch, Source::Uri("file://two".into())))
         .unwrap();
 
     assert_eq!(list.name, "Extension List");
@@ -169,4 +172,54 @@ fn valid_empty_add_one() {
 
     assert_eq!(chains[1].chain_id, 42);
     assert_eq!(chains[1].endpoints, ["https://kovan.sourceri.invalid"]);
+}
+
+#[test]
+#[cfg_attr(target_family = "wasm", wasm_bindgen_test)]
+fn invalid_version() {
+    let one = r#"{
+  "name": "Root List",
+  "version": {
+    "major": 0,
+    "minor": 1,
+    "patch": 1,
+    "build": "XPSr.p.I.g.l"
+  },
+  "timestamp": "2004-08-08T00:00:00.0Z",
+  "logo": "https://mylist.invalid/logo.png",
+  "providers": {
+  }
+}"#;
+
+    let two = r#"{
+  "name": "Extension List",
+  "version": {
+    "major": 10,
+    "minor": 1,
+    "patch": 0,
+    "build": "wWw"
+  },
+  "timestamp": "2024-08-08T00:00:00.0Z",
+  "logo": "https://mylist2.invalid/logo.png",
+  "extends": {
+    "uri": "file://one",
+    "version": {
+      "major": 0,
+      "minor": 2,
+      "patch": 0
+    }
+  },
+  "changes": []
+}"#;
+
+    let fetch = Fetch::with_two(one, two);
+    let mut pool = LocalPool::new();
+    let err = pool
+        .run_until(RpcProviders::fetch(fetch, Source::Uri("file://two".into())))
+        .unwrap_err();
+
+    match err {
+        Error::VersionMismatch => (),
+        other => panic!("expected VersionMismatch, but got: {:?}", other),
+    }
 }

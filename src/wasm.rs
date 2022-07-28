@@ -14,11 +14,15 @@ use wasm_bindgen_futures::JsFuture;
 const TS_APPEND_CONTENT: &'static str = r#"
 export type Provider = {};
 export type Version = {};
+export type Source = {uri: string} | {ens: string};
 "#;
 
 #[wasm_bindgen]
 extern "C" {
-    #[wasm_bindgen(typescript_type = "(uri: string) => Promise<string>")]
+    #[wasm_bindgen(typescript_type = "Source")]
+    pub type Source;
+
+    #[wasm_bindgen(typescript_type = "(uri: Source) => Promise<string>")]
     pub type FetchFn;
 
     #[wasm_bindgen(typescript_type = "Provider")]
@@ -32,10 +36,11 @@ extern "C" {
 impl RpcProviders {
     #[doc(hidden)]
     #[wasm_bindgen(js_name = "fetch")]
-    pub async fn fetch_js(fetch: FetchFn, uri: String) -> Result<RpcProviders, JsValue> {
+    pub async fn fetch_js(fetch: FetchFn, source: Source) -> Result<RpcProviders, JsValue> {
+        let source: crate::Source = source.into_serde().unwrap();
         let value: JsValue = fetch.into();
         let fetch = JsFetch(value.into());
-        let result = Self::fetch(fetch, uri).await?;
+        let result = Self::fetch(fetch, source).await?;
         Ok(result)
     }
 
@@ -68,13 +73,16 @@ impl RpcProviders {
 pub(crate) struct JsFetch(pub Function);
 
 impl fetch::Fetch for JsFetch {
-    fn fetch(&mut self, uri: &str) -> Pin<Box<dyn Future<Output = Result<String, FetchError>>>> {
+    fn fetch(
+        &mut self,
+        source: crate::Source,
+    ) -> Pin<Box<dyn Future<Output = Result<String, FetchError>>>> {
         let fetch = self.0.clone();
-        let uri = JsValue::from_str(uri);
+        let source = JsValue::from_serde(&source).unwrap();
 
         let future = async move {
             let this = JsValue::null();
-            let promise = Promise::from(fetch.call1(&this, &uri)?);
+            let promise = Promise::from(fetch.call1(&this, &source)?);
 
             let result = JsFuture::from(promise).await?;
             let string = JsString::from(result);

@@ -290,19 +290,38 @@
           "additionalProperties": false,
 
           "required": [
-            "from",
             "version"
           ],
 
           "properties": {
-            "from": {
+            "uri": {
               "type": "string",
-              "format": "uri"
+              "format": "uri",
+              "description": "Location of the list to extend, as a URI."
+            },
+            "ens": {
+              "type": "string",
+              "description": "Location of the list to extend using EIP-1577."
             },
             "version": {
               "$ref": "#/$defs/VersionRange"
             }
-          }
+          },
+
+          "oneOf": [
+            {
+              "properties": {
+                "uri": false,
+                "ens": true
+              }
+            },
+            {
+              "properties": {
+                "ens": false,
+                "uri": true
+              }
+            }
+          ]
         },
         "changes": {
           "$ref": "#/$defs/Patch"

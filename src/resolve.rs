@@ -1,11 +1,12 @@
 use crate::errors::{Error, JsonError, PatchError, ValidationError};
 use crate::fetch::Fetch;
-use crate::{RpcProviders, Version};
+use crate::{RpcProviders, Source, Version};
 
 use jsonschema::JSONSchema;
 
 use lazy_static::lazy_static;
 
+use semver::Prerelease;
 use serde::{Deserialize, Serialize};
 
 use serde_json::Value;
@@ -20,7 +21,7 @@ lazy_static! {
     };
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "mode")]
 enum Mode {
     #[serde(rename = "=")]
@@ -42,19 +43,48 @@ impl Default for Mode {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 struct VersionRange {
-    major: u32,
-    minor: u32,
-    patch: u32,
+    major: u64,
+    minor: u64,
+    patch: u64,
     #[serde(flatten, default, skip_serializing_if = "Option::is_none")]
     mode: Option<Mode>,
 }
 
+impl VersionRange {
+    fn into_semver(self) -> semver::VersionReq {
+        let op;
+        let pre;
+
+        match self.mode {
+            None | Some(Mode::Caret) => {
+                op = semver::Op::Caret;
+                pre = None;
+            }
+            Some(Mode::Exact { pre_release }) => {
+                op = semver::Op::Exact;
+                pre = pre_release.map(|p| Prerelease::new(&p).unwrap());
+            }
+        };
+
+        semver::VersionReq {
+            comparators: vec![semver::Comparator {
+                op,
+                pre: pre.unwrap_or(Prerelease::EMPTY),
+                major: self.major,
+                minor: Some(self.minor),
+                patch: Some(self.patch),
+            }],
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct Extends {
-    from: String,
     version: VersionRange,
+    #[serde(flatten)]
+    from: Source,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -78,17 +108,26 @@ struct List {
 
 impl List {
     fn check_version(&self, parent: &Self) -> Result<(), Error> {
-        #[cfg(debug_assertions)]
-        return Ok(());
-        todo!()
+        let version_req = match self.kind {
+            Kind::Extension { ref extends, .. } => extends.version.clone().into_semver(),
+            _ => panic!("only extension lists need a version check"),
+        };
+
+        let parent_version = parent.version.clone().into_semver();
+
+        if version_req.matches(&parent_version) {
+            Ok(())
+        } else {
+            Err(Error::VersionMismatch)
+        }
     }
 }
 
-pub async fn resolve(fetch: &mut dyn Fetch, uri: &str) -> Result<RpcProviders, Error> {
+pub async fn resolve(fetch: &mut dyn Fetch, source: Source) -> Result<RpcProviders, Error> {
     let mut seen = HashSet::new();
 
     let mut stack = Vec::<List>::new();
-    let mut current = uri.to_owned();
+    let mut current = source;
 
     loop {
         // Ensure that this `from` has not been seen before.
@@ -97,7 +136,7 @@ pub async fn resolve(fetch: &mut dyn Fetch, uri: &str) -> Result<RpcProviders, E
         }
 
         // Retrieve the parent list.
-        let text = fetch.fetch(&current).await?;
+        let text = fetch.fetch(current).await?;
         let json = serde_json::from_str(&text).map_err(JsonError)?;
 
         // Verify that the parent list is valid according to the JSON schema.

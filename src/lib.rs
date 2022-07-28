@@ -6,6 +6,8 @@ mod wasm;
 
 pub use self::errors::Error;
 
+use semver::{BuildMetadata, Prerelease};
+
 use serde::{Deserialize, Serialize};
 
 #[cfg(target_family = "wasm")]
@@ -31,9 +33,9 @@ pub struct Provider {
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 #[non_exhaustive]
 pub struct Version {
-    pub major: u32,
-    pub minor: u32,
-    pub patch: u32,
+    pub major: u64,
+    pub minor: u64,
+    pub patch: u64,
 
     #[serde(
         default,
@@ -44,6 +46,33 @@ pub struct Version {
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub build: Option<String>,
+}
+
+impl Version {
+    fn into_semver(self) -> semver::Version {
+        semver::Version {
+            major: self.major,
+            minor: self.minor,
+            patch: self.patch,
+            pre: self
+                .pre_release
+                .map(|p| Prerelease::new(&p).unwrap())
+                .unwrap_or(Prerelease::EMPTY),
+            build: self
+                .build
+                .map(|b| BuildMetadata::new(&b).unwrap())
+                .unwrap_or(BuildMetadata::EMPTY),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub enum Source {
+    #[serde(rename = "ens")]
+    Ens(String),
+
+    #[serde(rename = "uri")]
+    Uri(String),
 }
 
 #[cfg_attr(target_family = "wasm", wasm_bindgen(getter_with_clone))]
@@ -58,12 +87,11 @@ pub struct RpcProviders {
 }
 
 impl RpcProviders {
-    pub async fn fetch<F, S>(mut fetch: F, uri: S) -> Result<Self, Error>
+    pub async fn fetch<F>(mut fetch: F, source: Source) -> Result<Self, Error>
     where
         F: fetch::Fetch,
-        S: AsRef<str>,
     {
-        resolve::resolve(&mut fetch, uri.as_ref()).await
+        resolve::resolve(&mut fetch, source).await
     }
 
     pub fn providers(&self) -> &[Provider] {
