@@ -119,15 +119,54 @@ fn valid_empty_add_one() {
 
     let fetch = Fetch::with_two(one, two);
     let mut pool = LocalPool::new();
-    let list = pool.run_until(RpcProviders::fetch(fetch, "file://two"))
+    let list = pool
+        .run_until(RpcProviders::fetch(fetch, "file://two"))
         .unwrap();
 
     assert_eq!(list.name, "Extension List");
+    assert_eq!(list.logo, Some("https://mylist2.invalid/logo.png".into()));
+    assert_eq!(list.timestamp, "2024-08-08T00:00:00.0Z");
 
     assert_eq!(list.version().major, 10);
     assert_eq!(list.version().minor, 1);
     assert_eq!(list.version().patch, 0);
     assert_eq!(list.version().build, Some("wWw".into()));
+    assert_eq!(list.version().pre_release, None);
 
-    todo!()
+    let mut providers = list.providers().to_vec();
+    providers.sort_by(|a, b| a.name.cmp(&b.name));
+
+    assert_eq!(providers.len(), 2);
+
+    assert_eq!(providers[0].name, "Frustrata");
+    assert_eq!(providers[0].logo, None);
+    assert_eq!(providers[0].priority, None);
+
+    let chains = &providers[0].chains;
+    assert_eq!(chains.len(), 2);
+
+    assert_eq!(chains[0].chain_id, 1);
+    assert_eq!(
+        chains[0].endpoints,
+        [
+            "https://mainnet1.frustrata.invalid/",
+            "https://mainnet2.frustrana.invalid/"
+        ]
+    );
+
+    assert_eq!(chains[1].chain_id, 3);
+    assert_eq!(chains[1].endpoints, ["https://ropsten.frustrana.invalid/"]);
+
+    assert_eq!(providers[1].name, "Sourceri");
+    assert_eq!(providers[1].logo, None);
+    assert_eq!(providers[1].priority, Some(3));
+
+    let chains = &providers[1].chains;
+    assert_eq!(chains.len(), 2);
+
+    assert_eq!(chains[0].chain_id, 1);
+    assert_eq!(chains[0].endpoints, ["https://mainnet.sourceri.invalid/",]);
+
+    assert_eq!(chains[1].chain_id, 42);
+    assert_eq!(chains[1].endpoints, ["https://kovan.sourceri.invalid"]);
 }
