@@ -1,0 +1,52 @@
+name: TypeScript Documentation
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+
+env:
+  TYPEDOC_VERSION: "0.23.9"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@1.60.0
+
+      - name: Install wasm-pack
+        run: cargo install wasm-pack --version 0.10.3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3.4.1
+
+      - name: Retrieve Cached Dependencies
+        uses: actions/cache@v3.0.5
+        id: node-cache
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-${{ env.TYPEDOC_VERSION }}
+
+      - name: Install TypeDoc
+        if: steps.node-cache.outputs.cache-hit != 'true'
+        run: "npm install typedoc@$TYPEDOC_VERSION"
+
+      - name: Build Module
+        run: wasm-pack build --target nodejs
+
+      - name: Populate tsconfig
+        run: 'echo \{ \"exclude\": [ \"node_modules\" ] } > tsconfig.json'
+
+      - name: Generate Documentation
+        run: npx typedoc pkg/eip5139.d.ts
+
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3.8.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs
+
