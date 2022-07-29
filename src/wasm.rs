@@ -1,4 +1,4 @@
-use crate::errors::FetchError;
+use crate::errors::{FetchError, InnerFetchError};
 use crate::{fetch, RpcProviders};
 
 use js_sys::{Date, Function, JsString, Promise};
@@ -96,12 +96,27 @@ impl fetch::Fetch for JsFetch {
 
 impl From<JsValue> for FetchError {
     fn from(value: JsValue) -> Self {
-        todo!()
+        Self {
+            inner: InnerFetchError::Js(value),
+        }
     }
 }
 
 impl From<crate::Error> for JsValue {
     fn from(value: crate::Error) -> Self {
-        todo!()
+        use crate::Error::Fetch;
+
+        let error = js_sys::Error::new(&value.to_string());
+
+        if let Fetch {
+            source: FetchError {
+                inner: InnerFetchError::Js(v),
+            },
+        } = value
+        {
+            error.set_cause(&v);
+        }
+
+        error.into()
     }
 }
