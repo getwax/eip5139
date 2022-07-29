@@ -25,7 +25,9 @@ pub struct ProviderChain {
 #[non_exhaustive]
 pub struct Provider {
     pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub logo: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub priority: Option<u32>,
     pub chains: Vec<ProviderChain>,
 }
@@ -39,7 +41,7 @@ pub struct Version {
 
     #[serde(
         default,
-        rename = "pre-release",
+        rename = "preRelease",
         skip_serializing_if = "Option::is_none"
     )]
     pub pre_release: Option<String>,

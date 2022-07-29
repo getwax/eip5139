@@ -1,7 +1,7 @@
 use crate::errors::{FetchError, InnerFetchError};
 use crate::{fetch, RpcProviders};
 
-use js_sys::{Date, Function, JsString, Promise};
+use js_sys::{Function, JsString, Promise};
 
 use std::future::Future;
 use std::pin::Pin;
@@ -12,8 +12,28 @@ use wasm_bindgen_futures::JsFuture;
 
 #[wasm_bindgen(typescript_custom_section)]
 const TS_APPEND_CONTENT: &'static str = r#"
-export type Provider = {};
-export type Version = {};
+export type ProviderChain = {
+    chainId: number,
+    endpoints: string[],
+};
+
+export type Provider = {
+    name: string,
+    logo?: string,
+    priority?: number,
+    chains: ProviderChain[],
+};
+
+export type Providers = Provider[];
+
+export type Version = {
+    major: number,
+    minor: number,
+    patch: number,
+    preRelease?: string,
+    build?: string,
+};
+
 export type Source = {uri: string} | {ens: string};
 "#;
 
@@ -25,8 +45,8 @@ extern "C" {
     #[wasm_bindgen(typescript_type = "(uri: Source) => Promise<string>")]
     pub type FetchFn;
 
-    #[wasm_bindgen(typescript_type = "Provider")]
-    pub type Provider;
+    #[wasm_bindgen(typescript_type = "Providers")]
+    pub type Providers;
 
     #[wasm_bindgen(typescript_type = "Version")]
     pub type Version;
@@ -47,25 +67,27 @@ impl RpcProviders {
     #[doc(hidden)]
     #[wasm_bindgen(getter, js_name = version)]
     pub fn version_js(&self) -> Version {
-        todo!()
+        JsValue::from_serde(&self.version).unwrap().into()
     }
 
     #[doc(hidden)]
     #[wasm_bindgen(setter, js_name = version)]
-    pub fn set_version_js(&self, version: Version) {
-        todo!()
+    pub fn set_version_js(&mut self, version: Version) -> Result<(), JsError> {
+        self.version = version.into_serde()?;
+        Ok(())
     }
 
     #[doc(hidden)]
     #[wasm_bindgen(getter, js_name = providers)]
-    pub fn providers_js(&self) -> Vec<Provider> {
-        todo!()
+    pub fn providers_js(&self) -> Providers {
+        JsValue::from_serde(&self.providers).unwrap().into()
     }
 
     #[doc(hidden)]
     #[wasm_bindgen(setter, js_name = providers)]
-    pub fn set_providers_js(&self, provider: Vec<Provider>) {
-        todo!()
+    pub fn set_providers_js(&mut self, providers: Providers) -> Result<(), JsError> {
+        self.providers = providers.into_serde()?;
+        Ok(())
     }
 }
 

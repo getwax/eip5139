@@ -1,41 +1,14 @@
+pub mod utils;
+
 use eip5139::errors::*;
 use eip5139::{RpcProviders, Source};
 
-use std::collections::HashMap;
-use std::future::Future;
-use std::pin::Pin;
-
 use futures_executor::LocalPool;
+
+use self::utils::Fetch;
 
 #[cfg(target_family = "wasm")]
 use wasm_bindgen_test::wasm_bindgen_test;
-
-struct Fetch {
-    contents: HashMap<Source, String>,
-}
-
-impl Fetch {
-    fn with_two<O, T>(one: O, two: T) -> Self
-    where
-        O: Into<String>,
-        T: Into<String>,
-    {
-        let mut contents = HashMap::new();
-        contents.insert(Source::Uri("file://one".into()), one.into());
-        contents.insert(Source::Uri("file://two".into()), two.into());
-        Self { contents }
-    }
-}
-
-impl eip5139::fetch::Fetch for Fetch {
-    fn fetch(
-        &mut self,
-        source: Source,
-    ) -> Pin<Box<dyn Future<Output = Result<String, FetchError>>>> {
-        let output = Ok(self.contents[&source].to_owned());
-        Box::pin(async move { output })
-    }
-}
 
 #[test]
 #[cfg_attr(target_family = "wasm", wasm_bindgen_test)]
