@@ -54,6 +54,24 @@ extern "C" {
 
 #[wasm_bindgen]
 impl RpcProviders {
+    /// Retrieve the list from `source` and resolve any extension lists.
+    ///
+    /// The `fetch` function should take a single argument (`source`), and
+    /// return a `Promise` that resolves to a string.
+    ///
+    /// `source` will take one of two forms.
+    ///
+    /// If the list is to be retrieved using EIP-1577, it'll look like this:
+    ///
+    /// ```javascript
+    /// { "ens": "example.eth" }
+    /// ```
+    ///
+    /// If the list is to be retrieved using HTTPS, it'll look like this:
+    ///
+    /// ```javascript
+    /// { "uri": "https://example.com" }
+    /// ```
     #[doc(hidden)]
     #[wasm_bindgen(js_name = "fetch")]
     pub async fn fetch_js(fetch: FetchFn, source: Source) -> Result<RpcProviders, JsValue> {
@@ -64,6 +82,7 @@ impl RpcProviders {
         Ok(result)
     }
 
+    /// The version of this list.
     #[doc(hidden)]
     #[wasm_bindgen(getter, js_name = version)]
     pub fn version_js(&self) -> Version {
@@ -77,6 +96,7 @@ impl RpcProviders {
         Ok(())
     }
 
+    /// The providers contained in this list.
     #[doc(hidden)]
     #[wasm_bindgen(getter, js_name = providers)]
     pub fn providers_js(&self) -> Providers {

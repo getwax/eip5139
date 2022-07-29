@@ -31,7 +31,7 @@ impl Fetch {
     }
 }
 
-impl eip5139::fetch::Fetch for Fetch {
+impl eip5139::Fetch for Fetch {
     fn fetch(
         &mut self,
         source: Source,

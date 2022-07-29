@@ -118,7 +118,7 @@ impl List {
         if version_req.matches(&parent_version) {
             Ok(())
         } else {
-            Err(Error::VersionMismatch)
+            Err(Error::VersionMismatch {})
         }
     }
 }
@@ -159,7 +159,7 @@ pub async fn resolve(fetch: &mut dyn Fetch, source: Source) -> Result<RpcProvide
         };
 
         if stack.len() > 10 {
-            return Err(Error::TooDeep);
+            return Err(Error::TooDeep {});
         }
     }
 

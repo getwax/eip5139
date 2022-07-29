@@ -192,7 +192,7 @@ fn invalid_version() {
         .unwrap_err();
 
     match err {
-        Error::VersionMismatch => (),
+        Error::VersionMismatch { .. } => (),
         other => panic!("expected VersionMismatch, but got: {:?}", other),
     }
 }
